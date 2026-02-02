@@ -50,6 +50,11 @@ public func IsMinimized() -> Bool {
     return LibUniWinC.isMinimized()
 }
 
+@_cdecl("IsFreePositioningEnabled")
+public func IsFreePositioningEnabled() -> Bool {
+    return LibUniWinC.isFreePositioningEnabled()
+}
+
 @_cdecl("DetachWindow")
 public func DetachWindow() -> Bool {
     LibUniWinC.detachWindow()
@@ -106,6 +111,11 @@ public func SetClickThrough(isTransparent: Bool) -> Void {
     LibUniWinC.setClickThrough(isTransparent: isTransparent)
 }
 
+@_cdecl("EnableFreePositioning")
+public func EnableFreePositioning(isFree: Bool) -> Void {
+    LibUniWinC.enableFreePositioning(enabled: isFree)
+}
+
 @_cdecl("SetPosition")
 public func SetPosition(x: Float32, y: Float32) -> Bool {
     return LibUniWinC.setPosition(x: x, y: y)
@@ -129,6 +139,11 @@ public func GetSize(width: UnsafeMutablePointer<Float32>, height: UnsafeMutableP
 @_cdecl("GetClientSize")
 public func GetClientSize(width: UnsafeMutablePointer<Float32>, height: UnsafeMutablePointer<Float32>) -> Bool {
     return LibUniWinC.getClientSize(width:width, height:height)
+}
+
+@_cdecl("GetClientRectangle")
+public func GetClientRectangle(x: UnsafeMutablePointer<Float32>, y: UnsafeMutablePointer<Float32>, width: UnsafeMutablePointer<Float32>, height: UnsafeMutablePointer<Float32>) -> Bool {
+    return LibUniWinC.getClientRectangle(x: x, y: y, width:width, height:height)
 }
 
 @_cdecl("GetCurrentMonitor")
@@ -195,6 +210,16 @@ public func SetCursorPosition(x: Float32, y: Float32) -> Bool {
 @_cdecl("GetCursorPosition")
 public func GetCursorPosition(x: UnsafeMutablePointer<Float32>, y: UnsafeMutablePointer<Float32>) -> Bool {
     return LibUniWinC.getCursorPosition(x:x, y:y)
+}
+
+@_cdecl("GetMouseButtons")
+public func GetMouseButtons() -> Int32 {
+    return LibUniWinC.getMouseButtons()
+}
+
+@_cdecl("GetModifierKeys")
+public func GetModifierKeys() -> Int32 {
+    return LibUniWinC.getModifierKeys()
 }
 
 // Call periodically to maintain window state.

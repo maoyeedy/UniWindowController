@@ -86,6 +86,7 @@ UNIWINC_EXPORT BOOL UNIWINC_API IsBottommost();
 UNIWINC_EXPORT BOOL UNIWINC_API IsBackground();
 UNIWINC_EXPORT BOOL UNIWINC_API IsMaximized();
 UNIWINC_EXPORT BOOL UNIWINC_API IsMinimized();
+UNIWINC_EXPORT BOOL UNIWINC_API IsFreePositioningEnabled();
 UNIWINC_EXPORT void UNIWINC_API Update();
 
 UNIWINC_EXPORT BOOL UNIWINC_API AttachMyWindow();
@@ -101,11 +102,13 @@ UNIWINC_EXPORT void UNIWINC_API SetBottommost(const BOOL isBottommost);
 UNIWINC_EXPORT void UNIWINC_API SetBackground(const BOOL isBackground);
 UNIWINC_EXPORT void UNIWINC_API SetClickThrough(const BOOL isTransparent);
 UNIWINC_EXPORT void UNIWINC_API SetMaximized(const BOOL isZoomed);
+UNIWINC_EXPORT void UNIWINC_API EnableFreePositioning(const BOOL isFree);
 UNIWINC_EXPORT BOOL UNIWINC_API SetPosition(const float x, const float y);
 UNIWINC_EXPORT BOOL UNIWINC_API GetPosition(float* x, float* y);
 UNIWINC_EXPORT BOOL UNIWINC_API SetSize(const float width, const float height);
 UNIWINC_EXPORT BOOL UNIWINC_API GetSize(float* width, float* height);
 UNIWINC_EXPORT BOOL UNIWINC_API GetClientSize(float* width, float* height);
+UNIWINC_EXPORT BOOL UNIWINC_API GetClientRectangle(float* x, float* y, float* width, float* height);
 UNIWINC_EXPORT INT32 UNIWINC_API GetCurrentMonitor();
 
 // Event handling
@@ -124,6 +127,10 @@ UNIWINC_EXPORT BOOL UNIWINC_API GetMonitorRectangle(const INT32 monitorIndex, fl
 // Mouse pointer
 UNIWINC_EXPORT BOOL UNIWINC_API SetCursorPosition(const float x, const float y);
 UNIWINC_EXPORT BOOL UNIWINC_API GetCursorPosition(float* x, float* y);
+UNIWINC_EXPORT INT32 UNIWINC_API GetMouseButtons();
+
+// Keyboard
+UNIWINC_EXPORT INT32 UNIWINC_API GetModifierKeys();
 
 // File drop
 UNIWINC_EXPORT BOOL UNIWINC_API SetAllowDrop(const BOOL bEnabled);

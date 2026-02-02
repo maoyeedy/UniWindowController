@@ -17,13 +17,14 @@ static SIZE szVirtualScreen_;
 static INT nPrimaryMonitorHeight_;
 static BOOL bIsTransparent_ = FALSE;
 static BOOL bIsBorderless_ = FALSE;
-static BYTE byAlpha_ = 0xFF;						// ウィンドウ全体の透明度 0x00:透明 ～ 0xFF:不透明
+static BYTE byAlpha_ = 0xFF;							// ウィンドウ全体の透明度 0x00:透明 ～ 0xFF:不透明
 static BOOL bIsTopmost_ = FALSE;
 static BOOL bIsBottommost_ = FALSE;
 static BOOL bIsBackground_ = FALSE;
+static BOOL bIsFreePositioning_ = FALSE;				// macOSのみ有効。Windowsでは値の保持のみ
 static BOOL bIsClickThrough_ = FALSE;
 static BOOL bAllowDropFile_ = FALSE;
-static COLORREF dwKeyColor_ = 0x00000000;		// AABBGGRR
+static COLORREF dwKeyColor_ = 0x00000000;				// AABBGGRR
 static TransparentType nTransparentType_ = TransparentType::Alpha;
 static TransparentType nCurrentTransparentType_ = TransparentType::Alpha;
 static INT nMonitorCount_ = 0;							// モニタ数。モニタ解像度一覧取得時は一時的に0に戻る
@@ -533,6 +534,15 @@ BOOL UNIWINC_API IsMinimized() {
 }
 
 /// <summary>
+/// （macOSのみ有効）ウィンドウの自由配置機能が有効かどうかを返します
+/// </summary>
+/// <returns>Windowsでは特に制限なしのためTRUE</returns>
+BOOL UNIWINC_API IsFreePositioningEnabled()
+{
+	return bIsFreePositioning_;
+}
+
+/// <summary>
 /// Restore and release the target window
 /// </summary>
 /// <returns></returns>
@@ -575,6 +585,7 @@ HWND FindOwnerWindowHandle() {
 ///   (To attach the process with multiple windows)
 /// </summary>
 /// <returns></returns>
+
 BOOL UNIWINC_API AttachMyActiveWindow() {
 	DWORD currentPid = GetCurrentProcessId();
 	HWND hWnd = GetActiveWindow();
@@ -925,6 +936,17 @@ void UNIWINC_API SetMaximized(const BOOL bZoomed) {
 }
 
 /// <summary>
+/// （macOSのみ）ウィンドウ配置制限を解除・復帰します
+/// </summary>
+/// <param name="isFree">Windowsでは動作しません</param>
+/// <returns>なし</returns>
+void UNIWINC_API EnableFreePositioning(const BOOL isFree)
+{
+	bIsFreePositioning_ = isFree;
+	return;
+}
+
+/// <summary>
 /// クリックスルー（マウス操作無効化）を設定／解除
 /// </summary>
 /// <param name="bTransparent"></param>
@@ -1064,6 +1086,42 @@ BOOL UNIWINC_API GetClientSize(float* width, float* height) {
 		*height = (float)(rect.bottom - rect.top);
 
 		return TRUE;
+	}
+	return FALSE;
+}
+
+/// <summary>
+/// Get the client area position and size of the window
+/// </summary>
+/// <param name="x">ウィンドウ左端からのx座標 [px]</param>
+/// <param name="y">ウィンドウ下端からのy座標 [px]</param>
+/// <param name="width">幅 [px]</param>
+/// <param name="height">高さ [px]</param>
+/// <returns>成功すれば true</returns>
+BOOL UNIWINC_API GetClientRectangle(float* x, float* y, float* width, float* height) {
+	*x = 0;
+	*y = 0;
+	*width = 0;
+	*height = 0;
+
+	if (hTargetWnd_ == NULL) return FALSE;
+	RECT windowRect;
+	if (GetWindowRect(hTargetWnd_, &windowRect)) {
+		LONG windowHeight = (windowRect.bottom - windowRect.top);
+		RECT rect;
+		if (GetClientRect(hTargetWnd_, &rect)) {
+			POINT originPoint;	// クライアント左下のスクリーン座標が入る
+			originPoint.x = rect.left;
+			originPoint.y = rect.bottom;
+			if (ClientToScreen(hTargetWnd_, &originPoint)) {
+				*x = (float)(originPoint.x - windowRect.left);
+				*y = (float)(windowHeight - (originPoint.y - windowRect.top));
+				*width = (float)(rect.right - rect.left);
+				*height = (float)(rect.bottom - rect.top);
+
+				return TRUE;
+			}
+		}
 	}
 	return FALSE;
 }
@@ -1237,6 +1295,45 @@ BOOL UNIWINC_API SetCursorPosition(const float x, const float y) {
 	pos.y = nPrimaryMonitorHeight_ - (int)y - 1;
 
 	return SetCursorPos(pos.x, pos.y);
+}
+
+/// <summary>
+/// マウスボタン押下状況を取得
+/// </summary>
+/// <returns>押下中なら1となるビットフラグ（1:Left, 2:Right, 4:Middle）</returns>
+INT32 UNIWINC_API GetMouseButtons() {
+	INT32 state = 0;
+	if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
+		state |= 1;
+	}
+	if (GetAsyncKeyState(VK_RBUTTON) & 0x8000) {
+		state |= 2;
+	}
+	if (GetAsyncKeyState(VK_MBUTTON) & 0x8000) {
+		state |= 4;
+	}
+	return state;
+}
+
+/// <summary>
+/// 修飾キーの押下状況を取得
+/// </summary>
+/// <returns>押下中なら1となるビットフラグ（1:ALt, 2:Ctrl, 4:Shift, 8:Win）</returns>
+INT32 UNIWINC_API GetModifierKeys() {
+	INT32 state = 0;
+	if (GetAsyncKeyState(VK_MENU) & 0x8000) {
+		state |= 1;
+	}
+	if (GetAsyncKeyState(VK_CONTROL) & 0x8000) {
+		state |= 2;
+	}
+	if (GetAsyncKeyState(VK_SHIFT) & 0x8000) {
+		state |= 4;
+	}
+	if (GetAsyncKeyState(VK_LWIN) & 0x8000 || GetAsyncKeyState(VK_RWIN) & 0x8000) {
+		state |= 8;
+	}
+	return state;
 }
 
 #pragma endregion For mouse cursor

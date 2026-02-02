@@ -14,6 +14,8 @@ using UnityEngine.EventSystems;
 using UnityEditor;
 using System.Reflection;
 using UnityEngine.Events;
+using System.Linq;
+
 #endif
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -81,6 +83,31 @@ namespace Kirurobo
             WallpaperModeEnabled = 64 + 1 + 8,
             WallpaperModeDisabled = 64 + 1,
         };
+
+        /// <summary>
+        /// Mouse buttons
+        /// </summary>
+        [Flags]
+        public enum MouseButton : int
+        {
+            None = 0,
+            Left = 1,
+            Right = 2,
+            Middle = 4,
+        }
+
+        /// <summary>
+        /// Modifier keys
+        /// </summary>
+        [Flags]
+        public enum ModifierKey : int
+        {
+            None = 0,
+            Alt = 1,
+            Control = 2,
+            Shift = 4,
+            Command = 8,
+        }
 
         /// <summary>
         /// Get the current instance of UniWindowController
@@ -249,7 +276,20 @@ namespace Kirurobo
         /// </summary>
         [Tooltip("Will be used the next time the window becomes transparent")]
         public Color32 keyColor = new Color32(0x01, 0x00, 0x01, 0x00);
-        
+
+        /// <summary>
+        /// macOSで、メニューバーより上にウィンドウを配置できるようにするか
+        /// </summary>
+        public bool isFreePositioningEnabled
+        {
+            get { return ((_uniWinCore == null) ? _isFreePositioningEnabled : _isFreePositioningEnabled = _uniWinCore.IsFreePositioningEnabled); }
+            set { SetFreePositioning(value); }
+        }
+        [Header("For macOS only")]
+        [Tooltip("Disable constrainFrameRect() *Only available on macOS")]
+        [SerializeField, EditableProperty]
+        private bool _isFreePositioningEnabled = false;
+
         /// <summary>
         /// Is the mouse pointer on an opaque pixel or an object
         /// </summary>
@@ -443,6 +483,16 @@ namespace Kirurobo
         
         void Start()
         {
+            //// New Input System で支障があったため検証用に出力
+// #if ENABLE_LEGACY_INPUT_MANAGER
+//             Debug.Log("Use legacy input manager.");
+// #elif ENABLE_INPUT_SYSTEM
+//             Debug.Log("Use new input system.");
+//             Debug.Log("Run In Background " + Mouse.current.canRunInBackground);
+// #else
+//             Debug.Log("Mouse position is not available.");
+// #endif
+
             // マウスカーソル直下の色を取得するコルーチンを開始
             StartCoroutine(HitTestCoroutine());
 
@@ -636,15 +686,53 @@ namespace Kirurobo
         }
 
         /// <summary>
+        /// 画面上のマウス座標を Unity のスクリーン座標系に換算して取得
+        /// </summary>
+        private Vector2 GetClientCursorPosition()
+        {
+
+            // New Input System ではフォーカスが無い場合にマウス座標が取得できないため独自に計算する
+            Vector2 mousePos = UniWinCore.GetCursorPosition();
+            Vector2 winPos = windowPosition;
+            Rect clientRect = _uniWinCore.GetClientRectangle();
+            Vector2 unityPos = new Vector2(
+                (mousePos.x - winPos.x - clientRect.x) * Screen.width / clientRect.width,
+                (mousePos.y - winPos.y - clientRect.y) * Screen.height / clientRect.height
+                );
+
+//             // デバッグ用
+//             // Unityで取得した値と比較
+// #if ENABLE_LEGACY_INPUT_MANAGER
+//             Vector2 position = Input.mousePosition;
+// #elif ENABLE_INPUT_SYSTEM
+//             Vector2 position = Mouse.current.position.ReadValue();
+// #endif
+//             if (!position.Equals(unityPos))
+//             {
+//                 Debug.LogWarning("Mouse position diff : " + position + " / " + unityPos);
+//             }
+
+            // エディターの場合は常にUnityの機能でマウス座標を取得
+            //   Gameウィンドウ単体ではなかったり、Scaleが異なる場合があるため単純計算では求まらない
+#if UNITY_EDITOR 
+    #if ENABLE_LEGACY_INPUT_MANAGER
+            return Input.mousePosition;
+    #elif UNITY_EDITOR && ENABLE_INPUT_SYSTEM
+            return Mouse.current.position.ReadValue();
+    #else
+            return unityPos;
+    #endif
+#else
+            return unityPos;
+#endif
+        }
+
+        /// <summary>
         /// マウス下の画素があるかどうかを確認
         /// </summary>
         private void HitTestByOpaquePixel()
         {
-#if ENABLE_INPUT_SYSTEM
-            Vector2 mousePos = Mouse.current.position.ReadValue();
-#elif ENABLE_LEGACY_INPUT_MANAGER
-            Vector2 mousePos = Input.mousePosition;
-#endif
+            Vector2 mousePos = GetClientCursorPosition();
 
             // マウス座標を調べる
             if (GetOnOpaquePixel(mousePos))
@@ -708,11 +796,7 @@ namespace Kirurobo
         /// </summary>
         private void HitTestByRaycast()
         {
-#if ENABLE_INPUT_SYSTEM
-            Vector2 position = Mouse.current.position.ReadValue();
-#elif ENABLE_LEGACY_INPUT_MANAGER
-            Vector2 position = Input.mousePosition;
-#endif
+            Vector2 position = GetClientCursorPosition();
             
             // // uGUIの上か否かを判定
             var raycastResults = new List<RaycastResult>();
@@ -797,6 +881,7 @@ namespace Kirurobo
                     SetZoomed(_isZoomed);
                     SetClickThrough(_isClickThrough);
                     SetAllowDrop(_allowDropFiles);
+                    SetFreePositioning(_isFreePositioningEnabled);
 
                     // ウィンドウ取得時にはモニタ変更と同等の処理を行う
                     OnMonitorChanged?.Invoke();
@@ -963,6 +1048,17 @@ namespace Kirurobo
             _allowDropFiles = enabled;
         }
 
+        /// <summary>
+        /// macOSで、メニューバーより上を含む自由な位置ウィンドウを配置できるようにする
+        /// </summary>
+        /// <param name="enabled"></param>
+        private void SetFreePositioning(bool enabled)
+        {
+            if (_uniWinCore == null) return;
+
+            _uniWinCore.EnableFreePositioning(enabled);
+            _isFreePositioningEnabled = _uniWinCore.IsFreePositioningEnabled;
+        }
 
         /// <summary>
         /// Get the number of connected monitors
@@ -1059,6 +1155,26 @@ namespace Kirurobo
         public static void SetCursorPosition(Vector2 position)
         {
             UniWinCore.SetCursorPosition(position);
+        }
+
+        /// <summary>
+        /// Get mouse buttons
+        /// </summary>
+        /// <returns></returns>
+        public static MouseButton GetMouseButtons()
+        {
+            int buttons = UniWinCore.GetMouseButtons();
+            return (MouseButton)buttons;
+        }
+
+        /// <summary>
+        /// Get pressed modifier keys
+        /// </summary>
+        /// <returns></returns>
+        public static ModifierKey GetModifierKeys()
+        {
+            int mod = UniWinCore.GetModifierKeys();
+            return (ModifierKey)mod;
         }
 
         /// <summary>
